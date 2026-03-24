@@ -1,0 +1,115 @@
+/**
+ * Navbar — Persistent navigation bar across all pages.
+ * Displays the HealthMate brand name and navigation links.
+ * Responsive: collapses into a hamburger menu on mobile.
+ */
+import {
+  Box,
+  Flex,
+  HStack,
+  IconButton,
+  Button,
+  useDisclosure,
+  Stack,
+  Text,
+} from "@chakra-ui/react";
+import { Link as RouterLink, useLocation } from "react-router-dom";
+import { FaHeartbeat, FaBars, FaTimes } from "react-icons/fa";
+
+const NAV_LINKS = [
+  { label: "Home", to: "/" },
+  { label: "Dashboard", to: "/dashboard" },
+];
+
+function Navbar() {
+  const { isOpen, onOpen, onClose } = useDisclosure();
+  const location = useLocation();
+
+  return (
+    <Box bg="white" px={6} shadow="sm" position="sticky" top={0} zIndex={10}>
+      <Flex h={16} alignItems="center" justifyContent="space-between">
+        {/* Brand */}
+        <HStack
+          as={RouterLink}
+          to="/"
+          spacing={2}
+          _hover={{ textDecoration: "none" }}
+        >
+          <Box color="brand.500" fontSize="xl">
+            <FaHeartbeat />
+          </Box>
+          <Text fontSize="xl" fontWeight="bold" color="brand.600">
+            HealthMate
+          </Text>
+        </HStack>
+
+        {/* Desktop links */}
+        <HStack spacing={4} display={{ base: "none", md: "flex" }}>
+          {NAV_LINKS.map((link) => (
+            <Button
+              key={link.to}
+              as={RouterLink}
+              to={link.to}
+              variant={location.pathname === link.to ? "solid" : "ghost"}
+              colorScheme="brand"
+              size="sm"
+            >
+              {link.label}
+            </Button>
+          ))}
+          <Button
+            as={RouterLink}
+            to="/auth"
+            variant="outline"
+            colorScheme="brand"
+            size="sm"
+          >
+            Login
+          </Button>
+        </HStack>
+
+        {/* Mobile hamburger */}
+        <IconButton
+          size="md"
+          icon={isOpen ? <FaTimes /> : <FaBars />}
+          aria-label="Toggle menu"
+          display={{ md: "none" }}
+          onClick={isOpen ? onClose : onOpen}
+          variant="ghost"
+        />
+      </Flex>
+
+      {/* Mobile menu */}
+      {isOpen && (
+        <Box pb={4} display={{ md: "none" }}>
+          <Stack as="nav" spacing={3}>
+            {NAV_LINKS.map((link) => (
+              <Button
+                key={link.to}
+                as={RouterLink}
+                to={link.to}
+                variant="ghost"
+                colorScheme="brand"
+                justifyContent="flex-start"
+                onClick={onClose}
+              >
+                {link.label}
+              </Button>
+            ))}
+            <Button
+              as={RouterLink}
+              to="/auth"
+              variant="outline"
+              colorScheme="brand"
+              onClick={onClose}
+            >
+              Login
+            </Button>
+          </Stack>
+        </Box>
+      )}
+    </Box>
+  );
+}
+
+export default Navbar;
