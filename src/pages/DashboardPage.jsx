@@ -35,6 +35,8 @@ import {
   FaBed,
 } from "react-icons/fa";
 import StatCard from "../components/StatCard";
+import MentalHealthLog from "../components/MentalHealthLog";
+import PeriodHealthLog from "../components/PeriodHealthLog";
 
 const MotionBox = motion(Box);
 
@@ -130,15 +132,24 @@ function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const location = useLocation();
 
-  // Pull data from router state, or use defaults
-  const healthData = location.state?.healthData || {
-    weight: 75,
-    height: 175,
-    goal: "maintain",
-    age: 28,
-    gender: "male",
-    activityLevel: "moderate",
-  };
+  // Pull data from router state → localStorage fallback → hardcoded defaults
+  const savedProfile = (() => {
+    try {
+      return JSON.parse(localStorage.getItem("healthmate_profile"));
+    } catch {
+      return null;
+    }
+  })();
+
+  const healthData = location.state?.healthData ||
+    savedProfile || {
+      weight: 75,
+      height: 175,
+      goal: "maintain",
+      age: 28,
+      gender: "male",
+      activityLevel: "moderate",
+    };
 
   const bmi = calculateBMI(healthData.weight, healthData.height);
   const bmiCategory = bmi ? getBMICategory(bmi) : null;
@@ -385,6 +396,18 @@ function DashboardPage() {
             ))}
           </SimpleGrid>
         </MotionBox>
+
+        {/* ─── Mental Health Log (all users) ─── */}
+        <Box mt={10}>
+          <MentalHealthLog />
+        </Box>
+
+        {/* ─── Period Health Log (female users only) ─── */}
+        {healthData.gender === "female" && (
+          <Box mt={6}>
+            <PeriodHealthLog />
+          </Box>
+        )}
       </Container>
     </Box>
   );

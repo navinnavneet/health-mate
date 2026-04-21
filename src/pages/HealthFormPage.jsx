@@ -57,7 +57,7 @@ function HealthFormPage() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    // Pass form data to the dashboard via router state
+    localStorage.setItem("healthmate_profile", JSON.stringify(form));
     navigate("/dashboard", { state: { healthData: form } });
   };
 
