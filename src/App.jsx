@@ -8,6 +8,7 @@ import LandingPage from "./pages/LandingPage";
 import AuthPage from "./pages/AuthPage";
 import HealthFormPage from "./pages/HealthFormPage";
 import DashboardPage from "./pages/DashboardPage";
+import ProtectedRoute from "./components/ProtectedRoute.jsx";
 
 function App() {
   return (
@@ -16,8 +17,22 @@ function App() {
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/auth" element={<AuthPage />} />
-        <Route path="/form" element={<HealthFormPage />} />
-        <Route path="/dashboard" element={<DashboardPage />} />
+        <Route
+          path="/form"
+          element={
+            <ProtectedRoute>
+              <HealthFormPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <DashboardPage />
+            </ProtectedRoute>
+          }
+        />
       </Routes>
     </>
   );

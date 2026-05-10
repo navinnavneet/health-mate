@@ -26,6 +26,8 @@ import {
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { FaClipboardList } from "react-icons/fa";
+import { useAuth } from "../contexts/AuthContext.jsx";
+import { saveProfile } from "../services/api.js";
 
 const MotionBox = motion(Box);
 
@@ -48,17 +50,30 @@ function getProgress(form) {
 
 function HealthFormPage() {
   const [form, setForm] = useState(INITIAL_FORM);
+  const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
+  const { token, user } = useAuth();
+  const profileKey = `fitsense_profile_${user.id}`;
 
   const handleChange = (field) => (e) => {
     const value = e?.target ? e.target.value : e;
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    localStorage.setItem("healthmate_profile", JSON.stringify(form));
-    navigate("/dashboard", { state: { healthData: form } });
+    setSubmitting(true);
+    try {
+      await saveProfile(token, form);
+      localStorage.setItem(profileKey, JSON.stringify(form));
+      navigate("/dashboard", { state: { healthData: form } });
+    } catch {
+      // API unavailable — persist locally and continue
+      localStorage.setItem(profileKey, JSON.stringify(form));
+      navigate("/dashboard", { state: { healthData: form } });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const progress = getProgress(form);
@@ -234,6 +249,8 @@ function HealthFormPage() {
                 size="lg"
                 w="full"
                 mt={4}
+                isLoading={submitting}
+                loadingText="Saving..."
                 _hover={{ transform: "translateY(-2px)", shadow: "lg" }}
                 transition="all 0.2s"
               >

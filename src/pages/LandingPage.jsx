@@ -19,8 +19,6 @@ import {
   FaAppleAlt,
   FaRunning,
   FaChartLine,
-  FaShieldAlt,
-  FaUserMd,
 } from "react-icons/fa";
 import FeatureCard from "../components/FeatureCard";
 import Footer from "../components/Footer";
@@ -51,16 +49,6 @@ const FEATURES = [
     title: "Progress Insights",
     description: "Track your health journey with intuitive charts and stats.",
   },
-  {
-    icon: FaShieldAlt,
-    title: "Data Privacy",
-    description: "Your health data stays private and secure — always.",
-  },
-  {
-    icon: FaUserMd,
-    title: "Expert Backed",
-    description: "Recommendations grounded in evidence-based health science.",
-  },
 ];
 
 function LandingPage() {
@@ -89,7 +77,7 @@ function LandingPage() {
               mb={3}
               opacity={0.9}
             >
-              Welcome to HealthMate
+              Welcome to FitSense
             </Text>
             <Heading
               as="h1"
@@ -110,7 +98,7 @@ function LandingPage() {
               mb={10}
               opacity={0.9}
             >
-              HealthMate analyzes your health data to deliver actionable diet
+              FitSense analyzes your health data to deliver actionable diet
               plans, exercise routines, and wellness recommendations — all
               tailored to your unique goals.
             </Text>
@@ -147,11 +135,11 @@ function LandingPage() {
           </Heading>
           <Text color="gray.500" maxW="xl" mx="auto">
             From tracking BMI to personalized meal and workout plans —
-            HealthMate has you covered.
+            FitSense has you covered.
           </Text>
         </VStack>
 
-        <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={8}>
+        <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={8}>
           {FEATURES.map((feature, idx) => (
             <MotionBox
               key={feature.title}
@@ -159,6 +147,7 @@ function LandingPage() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.4, delay: idx * 0.1 }}
+              h="full"
             >
               <FeatureCard
                 icon={feature.icon}
@@ -177,7 +166,7 @@ function LandingPage() {
             Ready to take control of your health?
           </Heading>
           <Text color="whiteAlpha.900" mb={8}>
-            Join thousands of users who trust HealthMate for daily health
+            Join thousands of users who trust FitSense for daily health
             guidance.
           </Text>
           <Button

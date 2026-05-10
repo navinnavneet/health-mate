@@ -1,5 +1,5 @@
 /**
- * Custom Chakra UI theme for HealthMate
+ * Custom Chakra UI theme for FitSense
  * Uses a green/blue health-oriented color palette
  */
 import { extendTheme } from "@chakra-ui/react";

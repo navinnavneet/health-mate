@@ -20,11 +20,11 @@ function Footer() {
             <FaHeartbeat />
           </Box>
           <Text fontWeight="bold" color="white">
-            HealthMate
+            FitSense
           </Text>
         </HStack>
         <Text fontSize="sm">
-          © {new Date().getFullYear()} HealthMate. All rights reserved.
+          © {new Date().getFullYear()} FitSense. All rights reserved.
         </Text>
         <HStack spacing={4} fontSize="sm">
           <Link href="#" _hover={{ color: "white" }}>

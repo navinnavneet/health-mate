@@ -22,7 +22,7 @@ import {
   Icon,
   Flex,
 } from "@chakra-ui/react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   FaWeight,
@@ -34,6 +34,7 @@ import {
   FaTint,
   FaBed,
 } from "react-icons/fa";
+import { useAuth } from "../contexts/AuthContext.jsx";
 import StatCard from "../components/StatCard";
 import MentalHealthLog from "../components/MentalHealthLog";
 import PeriodHealthLog from "../components/PeriodHealthLog";
@@ -76,7 +77,7 @@ const DIET_PLANS = {
       "Snack: Protein shake with banana",
       "Lunch: Brown rice, chicken breast & lentils",
       "Snack: Trail mix with dried fruits",
-      "Dinner: Lean beef stir-fry with sweet potato",
+      "Dinner: Lean Fish stir-fry with Brown rice & veggies",
     ],
   },
   maintain: {
@@ -131,25 +132,28 @@ const EXERCISE_PLANS = {
 function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const firstName = user?.name?.split(" ")[0] || "Your";
 
-  // Pull data from router state → localStorage fallback → hardcoded defaults
+  // Pull data from router state → localStorage fallback → redirect to form
   const savedProfile = (() => {
     try {
-      return JSON.parse(localStorage.getItem("healthmate_profile"));
+      return JSON.parse(localStorage.getItem(`fitsense_profile_${user?.id}`));
     } catch {
       return null;
     }
   })();
 
-  const healthData = location.state?.healthData ||
-    savedProfile || {
-      weight: 75,
-      height: 175,
-      goal: "maintain",
-      age: 28,
-      gender: "male",
-      activityLevel: "moderate",
-    };
+  const healthData = location.state?.healthData || savedProfile;
+
+  useEffect(() => {
+    if (!healthData) {
+      navigate("/form", { replace: true });
+    }
+  }, []);
+
+  if (!healthData) return null;
 
   const bmi = calculateBMI(healthData.weight, healthData.height);
   const bmiCategory = bmi ? getBMICategory(bmi) : null;
@@ -204,7 +208,7 @@ function DashboardPage() {
           mb={10}
         >
           <Heading size="xl" color="gray.800">
-            Your Health Dashboard
+            {firstName}'s Health Dashboard
           </Heading>
           <Text color="gray.500" mt={2}>
             Here are your personalized insights based on the data you provided.

@@ -1,6 +1,6 @@
 /**
  * Navbar — Persistent navigation bar across all pages.
- * Displays the HealthMate brand name and navigation links.
+ * Displays the FitSense brand name and navigation links.
  * Responsive: collapses into a hamburger menu on mobile.
  */
 import {
@@ -13,8 +13,9 @@ import {
   Stack,
   Text,
 } from "@chakra-ui/react";
-import { Link as RouterLink, useLocation } from "react-router-dom";
+import { Link as RouterLink, useLocation, useNavigate } from "react-router-dom";
 import { FaHeartbeat, FaBars, FaTimes } from "react-icons/fa";
+import { useAuth } from "../contexts/AuthContext.jsx";
 
 const NAV_LINKS = [
   { label: "Home", to: "/" },
@@ -24,6 +25,13 @@ const NAV_LINKS = [
 function Navbar() {
   const { isOpen, onOpen, onClose } = useDisclosure();
   const location = useLocation();
+  const navigate = useNavigate();
+  const { isAuthenticated, user, logout } = useAuth();
+
+  const handleLogout = () => {
+    logout();
+    navigate("/");
+  };
 
   return (
     <Box bg="white" px={6} shadow="sm" position="sticky" top={0} zIndex={10}>
@@ -39,7 +47,7 @@ function Navbar() {
             <FaHeartbeat />
           </Box>
           <Text fontSize="xl" fontWeight="bold" color="brand.600">
-            HealthMate
+            FitSense
           </Text>
         </HStack>
 
@@ -57,15 +65,31 @@ function Navbar() {
               {link.label}
             </Button>
           ))}
-          <Button
-            as={RouterLink}
-            to="/auth"
-            variant="outline"
-            colorScheme="brand"
-            size="sm"
-          >
-            Login
-          </Button>
+          {isAuthenticated ? (
+            <>
+              <Text fontSize="sm" color="gray.600">
+                Hello, {user?.name?.split(" ")[0] || "User"}
+              </Text>
+              <Button
+                onClick={handleLogout}
+                variant="outline"
+                colorScheme="brand"
+                size="sm"
+              >
+                Logout
+              </Button>
+            </>
+          ) : (
+            <Button
+              as={RouterLink}
+              to="/auth"
+              variant="outline"
+              colorScheme="brand"
+              size="sm"
+            >
+              Login
+            </Button>
+          )}
         </HStack>
 
         {/* Mobile hamburger */}
@@ -96,15 +120,28 @@ function Navbar() {
                 {link.label}
               </Button>
             ))}
-            <Button
-              as={RouterLink}
-              to="/auth"
-              variant="outline"
-              colorScheme="brand"
-              onClick={onClose}
-            >
-              Login
-            </Button>
+            {isAuthenticated ? (
+              <Button
+                onClick={() => {
+                  handleLogout();
+                  onClose();
+                }}
+                variant="outline"
+                colorScheme="brand"
+              >
+                Logout
+              </Button>
+            ) : (
+              <Button
+                as={RouterLink}
+                to="/auth"
+                variant="outline"
+                colorScheme="brand"
+                onClick={onClose}
+              >
+                Login
+              </Button>
+            )}
           </Stack>
         </Box>
       )}

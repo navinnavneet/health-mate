@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Box,
   Button,
@@ -24,9 +24,12 @@ import {
   SimpleGrid,
   Tag,
   TagLabel,
+  Spinner,
 } from "@chakra-ui/react";
 import { FaVenus, FaPlus, FaCalendarAlt } from "react-icons/fa";
 import { motion } from "framer-motion";
+import { useAuth } from "../contexts/AuthContext.jsx";
+import { getPeriodLogs, createPeriodLog, updatePeriodLog } from "../services/api.js";
 
 const MotionBox = motion(Box);
 
@@ -43,30 +46,23 @@ const SYMPTOMS = [
 
 const FLOW_COLORS = { light: "blue", medium: "pink", heavy: "red" };
 
-const STORAGE_KEY = "healthmate_period_logs";
-
 function today() {
   return new Date().toISOString().split("T")[0];
-}
-
-function loadLogs() {
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
-  } catch {
-    return [];
-  }
 }
 
 function predictNext(cycles) {
   const completed = cycles.filter((c) => c.startDate && c.endDate);
   if (completed.length < 2) return null;
 
-  const sorted = [...completed].sort((a, b) => a.startDate.localeCompare(b.startDate));
+  const sorted = [...completed].sort((a, b) =>
+    a.startDate.localeCompare(b.startDate)
+  );
   let total = 0;
   let count = 0;
   for (let i = 1; i < sorted.length; i++) {
     const diff = Math.round(
-      (new Date(sorted[i].startDate) - new Date(sorted[i - 1].startDate)) / 86400000
+      (new Date(sorted[i].startDate) - new Date(sorted[i - 1].startDate)) /
+        86400000
     );
     if (diff >= 14 && diff <= 60) {
       total += diff;
@@ -97,7 +93,10 @@ function daysBetween(d1, d2) {
 
 export default function PeriodHealthLog() {
   const { isOpen, onOpen, onClose } = useDisclosure();
-  const [logs, setLogs] = useState(loadLogs);
+  const { token } = useAuth();
+  const [logs, setLogs] = useState([]);
+  const [loadingLogs, setLoadingLogs] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState(null);
 
   const [startDate, setStartDate] = useState(today());
@@ -109,6 +108,13 @@ export default function PeriodHealthLog() {
   const todayStr = today();
   const activeCycle = logs.find((l) => !l.endDate || l.endDate >= todayStr);
   const prediction = predictNext(logs);
+
+  useEffect(() => {
+    getPeriodLogs(token)
+      .then(setLogs)
+      .catch(() => {})
+      .finally(() => setLoadingLogs(false));
+  }, [token]);
 
   function openNew() {
     setEditingId(null);
@@ -131,27 +137,39 @@ export default function PeriodHealthLog() {
   }
 
   function toggleSymptom(s) {
-    setSymptoms((prev) => (prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]));
+    setSymptoms((prev) =>
+      prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]
+    );
   }
 
-  function save() {
-    const entry = {
-      id: editingId || new Date().toISOString(),
+  async function save() {
+    setSaving(true);
+    const payload = {
       startDate,
       endDate: endDate || null,
       flow,
       symptoms,
       notes,
     };
-    const updated = editingId
-      ? logs.map((l) => (l.id === editingId ? entry : l))
-      : [entry, ...logs];
-    setLogs(updated);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    onClose();
+    try {
+      if (editingId) {
+        const updated = await updatePeriodLog(token, editingId, payload);
+        setLogs((prev) => prev.map((l) => (l.id === editingId ? updated : l)));
+      } else {
+        const created = await createPeriodLog(token, payload);
+        setLogs((prev) => [created, ...prev]);
+      }
+      onClose();
+    } catch {
+      // Silent fail
+    } finally {
+      setSaving(false);
+    }
   }
 
-  const sorted = [...logs].sort((a, b) => b.startDate.localeCompare(a.startDate));
+  const sorted = [...logs].sort((a, b) =>
+    b.startDate.localeCompare(a.startDate)
+  );
 
   return (
     <MotionBox
@@ -170,108 +188,143 @@ export default function PeriodHealthLog() {
             Period Health Log
           </Heading>
         </HStack>
-        <Button leftIcon={<FaPlus />} colorScheme="pink" size="sm" onClick={openNew}>
+        <Button
+          leftIcon={<FaPlus />}
+          colorScheme="pink"
+          size="sm"
+          onClick={openNew}
+        >
           Log Period
         </Button>
       </HStack>
 
       <Divider mb={4} />
 
-      {prediction && (
-        <Box bg="pink.50" rounded="lg" p={4} mb={4}>
-          <HStack spacing={3}>
-            <Icon as={FaCalendarAlt} color="pink.400" />
-            <Text fontSize="sm" color="pink.700" fontWeight="semibold">
-              Predicted Next Period: {fmtDate(prediction.date)}
-            </Text>
-            <Badge colorScheme="pink" fontSize="xs">
-              ~{prediction.avgCycle}-day cycle
-            </Badge>
-          </HStack>
-        </Box>
-      )}
-
-      {activeCycle && (
-        <Box bg="red.50" rounded="lg" p={4} mb={4}>
-          <HStack justify="space-between" mb={2}>
-            <Text fontSize="sm" fontWeight="semibold" color="red.700">
-              Current / Recent Cycle
-            </Text>
-            <Button size="xs" colorScheme="red" variant="outline" onClick={() => openEdit(activeCycle)}>
-              Edit
-            </Button>
-          </HStack>
-          <HStack spacing={4} flexWrap="wrap">
-            <Text fontSize="sm" color="gray.600">
-              Started: <strong>{fmtDate(activeCycle.startDate)}</strong>
-            </Text>
-            {activeCycle.endDate ? (
-              <Text fontSize="sm" color="gray.600">
-                Ended: <strong>{fmtDate(activeCycle.endDate)}</strong> (
-                {daysBetween(activeCycle.startDate, activeCycle.endDate)} days)
-              </Text>
-            ) : (
-              <Badge colorScheme="red">Ongoing</Badge>
-            )}
-            <Badge colorScheme={FLOW_COLORS[activeCycle.flow]}>
-              {activeCycle.flow} flow
-            </Badge>
-          </HStack>
-          {activeCycle.symptoms?.length > 0 && (
-            <HStack mt={2} flexWrap="wrap" spacing={1}>
-              {activeCycle.symptoms.map((s) => (
-                <Tag key={s} size="sm" colorScheme="red" variant="subtle">
-                  <TagLabel>{s}</TagLabel>
-                </Tag>
-              ))}
-            </HStack>
-          )}
-        </Box>
-      )}
-
-      {sorted.length === 0 ? (
-        <Box bg="gray.50" rounded="lg" p={4} textAlign="center">
+      {loadingLogs ? (
+        <HStack justify="center" py={4}>
+          <Spinner size="sm" color="pink.400" />
           <Text fontSize="sm" color="gray.500">
-            No period logs yet. Track your cycle to see patterns.
+            Loading logs...
           </Text>
-        </Box>
+        </HStack>
       ) : (
-        <VStack spacing={3} align="stretch">
-          <Text fontSize="sm" fontWeight="semibold" color="gray.600">
-            Cycle History
-          </Text>
-          {sorted.slice(0, 5).map((cycle) => (
-            <HStack
-              key={cycle.id}
-              bg="gray.50"
-              rounded="lg"
-              p={3}
-              justify="space-between"
-              flexWrap="wrap"
-            >
-              <HStack spacing={3} flexWrap="wrap">
-                <Text fontSize="sm" color="gray.700">
-                  {fmtDate(cycle.startDate)}
+        <>
+          {prediction && (
+            <Box bg="pink.50" rounded="lg" p={4} mb={4}>
+              <HStack spacing={3}>
+                <Icon as={FaCalendarAlt} color="pink.400" />
+                <Text
+                  fontSize="sm"
+                  color="pink.700"
+                  fontWeight="semibold"
+                >
+                  Predicted Next Period: {fmtDate(prediction.date)}
                 </Text>
-                {cycle.endDate && (
-                  <>
-                    <Text fontSize="sm" color="gray.400">→</Text>
-                    <Text fontSize="sm" color="gray.700">{fmtDate(cycle.endDate)}</Text>
-                    <Badge colorScheme="gray" fontSize="xs">
-                      {daysBetween(cycle.startDate, cycle.endDate)}d
-                    </Badge>
-                  </>
-                )}
-                <Badge colorScheme={FLOW_COLORS[cycle.flow]} fontSize="xs">
-                  {cycle.flow}
+                <Badge colorScheme="pink" fontSize="xs">
+                  ~{prediction.avgCycle}-day cycle
                 </Badge>
               </HStack>
-              <Button size="xs" variant="ghost" colorScheme="pink" onClick={() => openEdit(cycle)}>
-                Edit
-              </Button>
-            </HStack>
-          ))}
-        </VStack>
+            </Box>
+          )}
+
+          {activeCycle && (
+            <Box bg="red.50" rounded="lg" p={4} mb={4}>
+              <HStack justify="space-between" mb={2}>
+                <Text fontSize="sm" fontWeight="semibold" color="red.700">
+                  Current / Recent Cycle
+                </Text>
+                <Button
+                  size="xs"
+                  colorScheme="red"
+                  variant="outline"
+                  onClick={() => openEdit(activeCycle)}
+                >
+                  Edit
+                </Button>
+              </HStack>
+              <HStack spacing={4} flexWrap="wrap">
+                <Text fontSize="sm" color="gray.600">
+                  Started: <strong>{fmtDate(activeCycle.startDate)}</strong>
+                </Text>
+                {activeCycle.endDate ? (
+                  <Text fontSize="sm" color="gray.600">
+                    Ended: <strong>{fmtDate(activeCycle.endDate)}</strong> (
+                    {daysBetween(activeCycle.startDate, activeCycle.endDate)}{" "}
+                    days)
+                  </Text>
+                ) : (
+                  <Badge colorScheme="red">Ongoing</Badge>
+                )}
+                <Badge colorScheme={FLOW_COLORS[activeCycle.flow]}>
+                  {activeCycle.flow} flow
+                </Badge>
+              </HStack>
+              {activeCycle.symptoms?.length > 0 && (
+                <HStack mt={2} flexWrap="wrap" spacing={1}>
+                  {activeCycle.symptoms.map((s) => (
+                    <Tag key={s} size="sm" colorScheme="red" variant="subtle">
+                      <TagLabel>{s}</TagLabel>
+                    </Tag>
+                  ))}
+                </HStack>
+              )}
+            </Box>
+          )}
+
+          {sorted.length === 0 ? (
+            <Box bg="gray.50" rounded="lg" p={4} textAlign="center">
+              <Text fontSize="sm" color="gray.500">
+                No period logs yet. Track your cycle to see patterns.
+              </Text>
+            </Box>
+          ) : (
+            <VStack spacing={3} align="stretch">
+              <Text fontSize="sm" fontWeight="semibold" color="gray.600">
+                Cycle History
+              </Text>
+              {sorted.slice(0, 5).map((cycle) => (
+                <HStack
+                  key={cycle.id}
+                  bg="gray.50"
+                  rounded="lg"
+                  p={3}
+                  justify="space-between"
+                  flexWrap="wrap"
+                >
+                  <HStack spacing={3} flexWrap="wrap">
+                    <Text fontSize="sm" color="gray.700">
+                      {fmtDate(cycle.startDate)}
+                    </Text>
+                    {cycle.endDate && (
+                      <>
+                        <Text fontSize="sm" color="gray.400">
+                          →
+                        </Text>
+                        <Text fontSize="sm" color="gray.700">
+                          {fmtDate(cycle.endDate)}
+                        </Text>
+                        <Badge colorScheme="gray" fontSize="xs">
+                          {daysBetween(cycle.startDate, cycle.endDate)}d
+                        </Badge>
+                      </>
+                    )}
+                    <Badge colorScheme={FLOW_COLORS[cycle.flow]} fontSize="xs">
+                      {cycle.flow}
+                    </Badge>
+                  </HStack>
+                  <Button
+                    size="xs"
+                    variant="ghost"
+                    colorScheme="pink"
+                    onClick={() => openEdit(cycle)}
+                  >
+                    Edit
+                  </Button>
+                </HStack>
+              ))}
+            </VStack>
+          )}
+        </>
       )}
 
       <Modal isOpen={isOpen} onClose={onClose} size="md">
@@ -288,7 +341,12 @@ export default function PeriodHealthLog() {
             <VStack spacing={5} pb={2}>
               <SimpleGrid columns={2} spacing={4} w="full">
                 <Box>
-                  <Text fontSize="sm" fontWeight="semibold" color="gray.700" mb={1}>
+                  <Text
+                    fontSize="sm"
+                    fontWeight="semibold"
+                    color="gray.700"
+                    mb={1}
+                  >
                     Start Date
                   </Text>
                   <Input
@@ -299,7 +357,12 @@ export default function PeriodHealthLog() {
                   />
                 </Box>
                 <Box>
-                  <Text fontSize="sm" fontWeight="semibold" color="gray.700" mb={1}>
+                  <Text
+                    fontSize="sm"
+                    fontWeight="semibold"
+                    color="gray.700"
+                    mb={1}
+                  >
                     End Date (optional)
                   </Text>
                   <Input
@@ -312,10 +375,19 @@ export default function PeriodHealthLog() {
               </SimpleGrid>
 
               <Box w="full">
-                <Text fontSize="sm" fontWeight="semibold" color="gray.700" mb={1}>
+                <Text
+                  fontSize="sm"
+                  fontWeight="semibold"
+                  color="gray.700"
+                  mb={1}
+                >
                   Flow Intensity
                 </Text>
-                <Select value={flow} onChange={(e) => setFlow(e.target.value)} size="sm">
+                <Select
+                  value={flow}
+                  onChange={(e) => setFlow(e.target.value)}
+                  size="sm"
+                >
                   <option value="light">Light</option>
                   <option value="medium">Medium</option>
                   <option value="heavy">Heavy</option>
@@ -323,7 +395,12 @@ export default function PeriodHealthLog() {
               </Box>
 
               <Box w="full">
-                <Text fontSize="sm" fontWeight="semibold" color="gray.700" mb={2}>
+                <Text
+                  fontSize="sm"
+                  fontWeight="semibold"
+                  color="gray.700"
+                  mb={2}
+                >
                   Symptoms
                 </Text>
                 <SimpleGrid columns={2} spacing={2}>
@@ -341,7 +418,12 @@ export default function PeriodHealthLog() {
               </Box>
 
               <Box w="full">
-                <Text fontSize="sm" fontWeight="semibold" color="gray.700" mb={1}>
+                <Text
+                  fontSize="sm"
+                  fontWeight="semibold"
+                  color="gray.700"
+                  mb={1}
+                >
                   Notes (optional)
                 </Text>
                 <Textarea
@@ -359,7 +441,13 @@ export default function PeriodHealthLog() {
             <Button variant="ghost" mr={3} onClick={onClose}>
               Cancel
             </Button>
-            <Button colorScheme="pink" onClick={save} isDisabled={!startDate}>
+            <Button
+              colorScheme="pink"
+              onClick={save}
+              isDisabled={!startDate}
+              isLoading={saving}
+              loadingText="Saving..."
+            >
               {editingId ? "Update" : "Save Log"}
             </Button>
           </ModalFooter>
